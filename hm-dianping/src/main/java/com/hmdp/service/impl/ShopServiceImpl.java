@@ -12,6 +12,7 @@ import com.hmdp.entity.Shop;
 import com.hmdp.mapper.ShopMapper;
 import com.hmdp.service.IShopService;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.hmdp.utils.CacheClient;
 import com.hmdp.utils.RedisConstants;
 import net.sf.jsqlparser.statement.select.KSQLWindow;
 import org.springframework.beans.BeanUtils;
@@ -41,15 +42,22 @@ public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IS
 
     @Resource
     private StringRedisTemplate stringRedisTemplate;
+    @Resource
+    private CacheClient cacheClient;
+
+    private static final ExecutorService CACHE_REBUILD_EXECUTOR= Executors.newFixedThreadPool(10);
 
     /**
-     * 通过id来查询商铺信息
+     * 通过id来查询商铺信息,解决缓存穿透
      * @param id
      * @return
      */
     @Override
-    public Result queryById(Long id) {
-        String key= RedisConstants.CACHE_SHOP_KEY+id;
+    public Shop queryById(Long id) {
+        Shop shop = cacheClient.queryWithPassThrough(RedisConstants.CACHE_SHOP_KEY, id, Shop.class, this::getById,
+                RedisConstants.CACHE_SHOP_TTL, TimeUnit.SECONDS);
+        return shop;
+/*        String key= RedisConstants.CACHE_SHOP_KEY+id;
         //先从redis当中查询店铺信息
         String shopJson = stringRedisTemplate.opsForValue().get(key);
         //如果店铺信息非空，就返回
@@ -68,11 +76,8 @@ public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IS
             return Result.fail("店铺不存在");
         }
         stringRedisTemplate.opsForValue().set(key,JSONUtil.toJsonStr(shop),RedisConstants.CACHE_SHOP_TTL, TimeUnit.MINUTES);
-        return Result.ok(shop);
+        return Result.ok(shop);*/
     }
-
-
-    private static final ExecutorService CACHE_REBUILD_EXECUTOR= Executors.newFixedThreadPool(10);
 
     /**
      * 添加互斥锁,通过id来查询商铺信息
@@ -81,7 +86,11 @@ public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IS
      */
 
     @Override
-    public Result queryByIdWithMutex(Long id) {
+    public Shop queryByIdWithMutex(Long id) {
+        Shop shop = cacheClient.queryWithMutex(RedisConstants.CACHE_SHOP_KEY, id, Shop.class, this::getById,
+                RedisConstants.CACHE_SHOP_TTL, TimeUnit.SECONDS);
+        return shop;
+        /*
         //1.获取店铺在redis中的key
         String key= RedisConstants.CACHE_SHOP_KEY+id;
         //2.从redis当中查询店铺信息
@@ -125,7 +134,7 @@ public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IS
         } finally {
             //4.5返回数据
             return Result.ok(shop);
-        }
+        }*/
     }
 
     /**
@@ -134,8 +143,11 @@ public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IS
      * @return
      */
     @Override
-    public Result queryByIdWithLogicExpire(Long id) {
-        //1.获取店铺在redis中的key
+    public Shop queryByIdWithLogicExpire(Long id) {
+        Shop shop = cacheClient.queryWithLogicalExpire(RedisConstants.CACHE_SHOP_KEY, id, Shop.class,
+                this::getById, RedisConstants.CACHE_SHOP_TTL, TimeUnit.SECONDS);
+        return shop;
+       /* //1.获取店铺在redis中的key
         String key= RedisConstants.CACHE_SHOP_KEY+id;
         //2.从redis当中查询店铺信息
         String shopJson = stringRedisTemplate.opsForValue().get(key);
@@ -171,7 +183,7 @@ public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IS
             });
         }
         //6.3返回商铺的过期信息
-        return Result.ok(shop);
+        return Result.ok(shop);*/
     }
 
     /**
