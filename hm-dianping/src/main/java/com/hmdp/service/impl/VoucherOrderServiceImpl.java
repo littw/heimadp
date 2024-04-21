@@ -1,6 +1,7 @@
 package com.hmdp.service.impl;
 
 import com.hmdp.dto.Result;
+import com.hmdp.dto.UserDTO;
 import com.hmdp.entity.SeckillVoucher;
 import com.hmdp.entity.VoucherOrder;
 import com.hmdp.mapper.VoucherOrderMapper;
@@ -9,8 +10,10 @@ import com.hmdp.service.IVoucherOrderService;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.hmdp.utils.RedisIdWorker;
 import com.hmdp.utils.UserHolder;
+import org.springframework.aop.framework.AopContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.Resource;
 import java.time.LocalDateTime;
@@ -55,26 +58,47 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
         if (stock<1){
             return Result.fail("库存不足！");
         }
-        boolean success = seckillVoucherService.update().setSql("stock=stock-1")
-                .eq("voucher_id", voucherId)
-                .gt("stock",0)  //优化改进乐观锁
-//                .eq("stock",stock)
-                .update();
-        //扣减库存
-        if (!success){
-            return Result.fail("库存不足！");
+        //对用户id值进行加锁
+        //需要对userId的值进行加锁，因为每次调用这个方法的时候，都会得到一个新的对象，不管值是否相同，所以，应该对对象的值进行加锁 ，将其转换为String类型
+        //但是toString()方法底层是创建一个新的String对象，并不能保证的对象是相同的
+        //添加intern()方法从字符串常量池中找到和当前值相同的值的地址并返回，这样可以确保对同一个用户的id值进行加锁
+        Long userId = UserHolder.getUser().getId();
+        synchronized (userId.toString().intern()) {
+            //获取代理对象(事务)
+            IVoucherOrderService proxy = (IVoucherOrderService)AopContext.currentProxy();
+            return proxy.creatVoucherOrder(voucherId);
         }
-        //生成优惠券秒杀订单
-        VoucherOrder voucherOrder = new VoucherOrder();
-        Long id = redisIdWorker.nextId("order");
-        //设置订单编号
-        voucherOrder.setId(id);
-        //设置用户编号
-        voucherOrder.setUserId(UserHolder.getUser().getId());
-        //设置优惠券id
-        voucherOrder.setVoucherId(seckillVoucher.getVoucherId());
-        //保存秒杀券
-        save(voucherOrder);
-        return Result.ok(voucherOrder.getId());
+    }
+    public Result creatVoucherOrder(Long voucherId){
+         //5.一人一单
+         //根据用户的id进行商品订单的查询
+         Long userId = UserHolder.getUser().getId();
+         //根据userId进行下单数量查询
+         Integer count = query().eq("user_id", userId).eq("voucher_id", voucherId).count();
+         if (count > 0) {
+             return Result.fail("用户已经购买过一次！");
+         }
+         //6.扣减库存
+         boolean success = seckillVoucherService.update().setSql("stock=stock-1")
+                 .eq("voucher_id", voucherId)
+                 .gt("stock", 0)  //优化改进乐观锁
+//                .eq("stock",stock)
+                 .update();
+         //扣减库存
+         if (!success) {
+             return Result.fail("库存不足！");
+         }
+         //生成优惠券秒杀订单
+         VoucherOrder voucherOrder = new VoucherOrder();
+         Long orderId = redisIdWorker.nextId("order");
+         //设置订单编号
+         voucherOrder.setId(orderId);
+         //设置用户编号
+         voucherOrder.setUserId(userId);
+         //设置优惠券id
+         voucherOrder.setVoucherId(voucherId);
+         //保存秒杀券
+         save(voucherOrder);
+         return Result.ok(orderId);
     }
 }
