@@ -12,6 +12,7 @@ import com.hmdp.utils.RedisIdWorker;
 import com.hmdp.utils.UserHolder;
 import org.springframework.aop.framework.AopContext;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,6 +34,9 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
 
     @Resource
     private RedisIdWorker redisIdWorker;
+
+    @Resource
+    private StringRedisTemplate stringRedisTemplate;
 
     /**
      * 实现优惠券秒杀功能
@@ -58,7 +62,25 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
         if (stock<1){
             return Result.fail("库存不足！");
         }
-        //对用户id值进行加锁
+        Long userId = UserHolder.getUser().getId();
+        //创建锁对象
+        SimpleRedisLock simpleRedisLock = new SimpleRedisLock("order:"+userId,stringRedisTemplate);
+        //获取锁
+        boolean isLock = simpleRedisLock.tryLock(1200);
+        //获取失败，返回失败信息
+        if (!isLock) {
+            return Result.fail("不允许重复下单！");
+        }
+        //成功，执行事务
+        try {
+            IVoucherOrderService proxy = (IVoucherOrderService)AopContext.currentProxy();
+            return proxy.creatVoucherOrder(voucherId);
+        } finally {
+            //释放锁
+            simpleRedisLock.unlock();
+        }
+
+/*        //对用户id值进行加锁
         //需要对userId的值进行加锁，因为每次调用这个方法的时候，都会得到一个新的对象，不管值是否相同，所以，应该对对象的值进行加锁 ，将其转换为String类型
         //但是toString()方法底层是创建一个新的String对象，并不能保证的对象是相同的
         //添加intern()方法从字符串常量池中找到和当前值相同的值的地址并返回，这样可以确保对同一个用户的id值进行加锁
@@ -66,8 +88,7 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
         synchronized (userId.toString().intern()) {
             //获取代理对象(事务)
             IVoucherOrderService proxy = (IVoucherOrderService)AopContext.currentProxy();
-            return proxy.creatVoucherOrder(voucherId);
-        }
+            return proxy.creatVoucherOrder(voucherId);*/
     }
     public Result creatVoucherOrder(Long voucherId){
          //5.一人一单
