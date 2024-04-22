@@ -80,9 +80,9 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
             simpleRedisLock.unlock();
         }
 
-/*        //对用户id值进行加锁
+        /*//对用户id值进行加锁
         //需要对userId的值进行加锁，因为每次调用这个方法的时候，都会得到一个新的对象，不管值是否相同，所以，应该对对象的值进行加锁 ，将其转换为String类型
-        //但是toString()方法底层是创建一个新的String对象，并不能保证的对象是相同的
+        //但是toString()方法底层是创建一个新的String对象，并不能保证对象是相同的
         //添加intern()方法从字符串常量池中找到和当前值相同的值的地址并返回，这样可以确保对同一个用户的id值进行加锁
         Long userId = UserHolder.getUser().getId();
         synchronized (userId.toString().intern()) {
