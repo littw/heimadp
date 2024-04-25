@@ -18,6 +18,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 
 import javax.servlet.http.HttpSession;
@@ -34,6 +35,7 @@ import java.util.concurrent.TimeUnit;
  * @since 2021-12-22
  */
 @Service
+@Transactional
 public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IUserService {
     @Autowired
     private StringRedisTemplate stringRedisTemplate;
@@ -92,7 +94,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
         //5.用户存在将用户保存到redis
         UserDTO userDTO=BeanUtil.copyProperties(user, UserDTO.class);
         Map<String, Object> userMap = BeanUtil.beanToMap(userDTO,new HashMap<>(),
-                CopyOptions.create()
+                         CopyOptions.create()
                         .setIgnoreNullValue(true)
                         .setFieldValueEditor((fieldName,fieldValue)->fieldValue.toString()));
         //5.1随机生成token作为在redis中存储的key以及登录的令牌
@@ -111,6 +113,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
      * @param phone
      * @return
      */
+
     private User createUserWithPhone(String phone) {
         User user = new User();
         user.setPhone(phone);

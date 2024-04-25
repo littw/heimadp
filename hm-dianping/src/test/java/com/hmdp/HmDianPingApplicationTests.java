@@ -4,6 +4,7 @@ import com.hmdp.entity.Shop;
 import com.hmdp.service.impl.ShopServiceImpl;
 import com.hmdp.utils.RedisIdWorker;
 import org.junit.jupiter.api.Test;
+import org.redisson.api.RedissonClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
@@ -18,6 +19,8 @@ class HmDianPingApplicationTests {
     private ShopServiceImpl shopService;
     @Resource
     private RedisIdWorker redisIdWorker;
+    @Resource
+    private RedissonClient redissonClient;
 
     //500个线程的线程池
     private ExecutorService es=Executors.newFixedThreadPool(500);
@@ -46,4 +49,8 @@ class HmDianPingApplicationTests {
         long end=System.currentTimeMillis();
         System.out.println("time="+(end-begin));
     }
+
+
+
+
 }

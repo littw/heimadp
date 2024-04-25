@@ -1,6 +1,7 @@
 package com.hmdp.entity;
 
 import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
@@ -45,6 +46,7 @@ public class User implements Serializable {
     /**
      * 昵称，默认是随机字符
      */
+    @TableField("nick_name")
     private String nickName;
 
     /**
@@ -55,12 +57,12 @@ public class User implements Serializable {
     /**
      * 创建时间
      */
+    @TableField("create_time")
     private LocalDateTime createTime;
 
     /**
      * 更新时间
      */
+    @TableField("update_time")
     private LocalDateTime updateTime;
-
-
 }
