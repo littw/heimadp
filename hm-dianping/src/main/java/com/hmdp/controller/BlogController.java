@@ -43,6 +43,11 @@ public class BlogController {
         return Result.ok(blog.getId());
     }
 
+    /**
+     * 给blog点赞
+     * @param id
+     * @return
+     */
     @PutMapping("/like/{id}")
     public Result likeBlog(@PathVariable("id") Long id) {
         return blogService.likeBlog(id);
@@ -67,5 +72,15 @@ public class BlogController {
     @GetMapping("/{id}")
     public Result queryBlogById(@PathVariable("id") Long id){
         return blogService.queryBlogById(id);
+    }
+
+    /**
+     * 查询每条blog点赞前五的用户
+     * @param id
+     * @return
+     */
+    @GetMapping("/likes/{id}")
+    public Result queryBlogLikes(@PathVariable("id") Long id){
+        return blogService.queryBlogLikes(id);
     }
 }
