@@ -127,14 +127,16 @@ public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IS
                 return Result.fail("店铺不存在");
             }
             stringRedisTemplate.opsForValue().set(key,JSONUtil.toJsonStr(shop),RedisConstants.CACHE_SHOP_TTL, TimeUnit.MINUTES);
-            //4.4.释放锁
-            unLock(lock);
+
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         } finally {
-            //4.5返回数据
-            return Result.ok(shop);
-        }*/
+        //4.4.释放锁
+            unLock(lock);
+        }
+      //4.5返回数据
+        return Result.ok(shop);
+       */
     }
 
     /**

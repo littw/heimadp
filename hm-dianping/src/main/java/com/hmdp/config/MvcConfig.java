@@ -28,8 +28,7 @@ public class MvcConfig implements WebMvcConfigurer {
                         "/user/code",
                         "/user/login"
                 ).order(1);
-        //拦截所有的页面
-        registry.addInterceptor(new RefreshTokenInterceptor(stringRedisTemplate)).order(0);
-
+        //拦截所有的页面，order是拦截器的设置顺序，数字越大，顺序越后
+        registry.addInterceptor(new RefreshTokenInterceptor(stringRedisTemplate)).addPathPatterns("/**").order(0);
     }
 }

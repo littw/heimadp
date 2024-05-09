@@ -17,6 +17,7 @@ public class RedisIdWorker {
     private StringRedisTemplate stringRedisTemplate ;
     private static final long BEGIN_TIME_STAMP=1704067200L;  //开始的时间戳
     private static final int COUNT_BITS=32;
+    //生成全局唯一id:时间戳+当前日期
     public Long nextId(String keyPrefix){
         //生成时间戳
         LocalDateTime now = LocalDateTime.now();

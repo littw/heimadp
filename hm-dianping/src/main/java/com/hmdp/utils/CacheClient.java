@@ -32,7 +32,7 @@ public class CacheClient {
         this.stringRedisTemplate.opsForValue().set(key, JSONUtil.toJsonStr(value),time,timeUnit);
     }
     //设置逻辑过期时间
-    public void setLogicalExpire(String key, Object value, Long time, TimeUnit timeUnit){
+    public void setWithLogicalExpire(String key, Object value, Long time, TimeUnit timeUnit){
         RedisData redisData = new RedisData();
         redisData.setExpireTime(LocalDateTime.now().plusSeconds(timeUnit.toSeconds(time)));
         redisData.setData(value);
@@ -43,26 +43,28 @@ public class CacheClient {
         String key= keyPrefix+id;
         //先从redis当中查询店铺信息
         String shopJson = stringRedisTemplate.opsForValue().get(key);
-        //如果店铺信息非空，就返回
+        //如果命中并且不是""，就返回
         if (StrUtil.isNotBlank(shopJson)){
             return JSONUtil.toBean(shopJson, type);
         }
-        //判断命中的是否是空值：空值无法确定是否存在，在查询数据库之前进行空值的判断
+        //判断命中的是""还是为命中的空值：空值无法确定是否存在，在查询数据库之前进行空值的判断
         if (shopJson!=null){
             return null;
         }
+        //进行数据库的查询
         R r=dbCallBack.apply((ID) id);
-
+        //数据库中不存在，那么就缓存为空值
         if (r==null){
             //缓存穿透：将null值存储在redis中并设置ttl
             stringRedisTemplate.opsForValue().set(key, "", CACHE_NULL_TTL, TimeUnit.MINUTES);
             return null;
         }
+        //查询到数据，写入redis
         this.set(key,JSONUtil.toJsonStr(r),time, timeUnit);
         return r;
     }
 
-    //缓存击穿：互斥锁
+    //缓存击穿：逻辑过期时间
     public <R,ID>R queryWithLogicalExpire(String keyPrefix, Long id, Class<R> type, Function<ID,R> dbCallBack,Long time,TimeUnit timeUnit){
         //1.获取店铺在redis中的key
         String key= keyPrefix+id;
@@ -91,7 +93,7 @@ public class CacheClient {
             CACHE_REBUILD_EXECUTOR.submit(()->{
                 try {
                     R newR = dbCallBack.apply((ID) id);
-                    this.setLogicalExpire(key,newR,time,timeUnit);
+                    this.setWithLogicalExpire(key,newR,time,timeUnit);
                 } catch (Exception e) {
                     throw new RuntimeException(e);
                 } finally {
@@ -104,7 +106,7 @@ public class CacheClient {
         return r;
     }
 
-    //缓存击穿：逻辑过期时间
+    //缓存击穿：互斥锁
     public <R,ID>R queryWithMutex(String keyPrefix, Long id, Class<R> type, Function<ID,R> dbCallBack,Long time,TimeUnit timeUnit){
         //1.获取店铺在redis中的key
         String key=keyPrefix+id;
@@ -119,7 +121,7 @@ public class CacheClient {
             //redis中存储空值，返回空值，缓解缓存穿透问题
             return null;
         }
-        //4.防止缓存雪崩
+        //4.防止缓存击穿
         //4.1.获取锁
         String lock=RedisConstants.LOCK_SHOP_KEY+id; //每个店铺都会设置一个锁
         R r=null;
@@ -134,21 +136,21 @@ public class CacheClient {
             r= dbCallBack.apply((ID) id);
             //模拟重建延时
             Thread.sleep(200);
-            //4.3.redis的写入
+            //4.3.redis的重建
             if (r==null){
                 //缓存穿透：将null值存储在redis中并设置ttl
                 stringRedisTemplate.opsForValue().set(key, "", CACHE_NULL_TTL, TimeUnit.MINUTES);
                 return null;
             }
             this.set(key,r,time, timeUnit);
-            //4.4.释放锁
-            unLock(lock);
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         } finally {
-            //4.5返回数据
-            return r;
+            //4.4.释放锁
+            unLock(lock);
         }
+        //4.5返回数据
+        return r;
     }
 
     /**

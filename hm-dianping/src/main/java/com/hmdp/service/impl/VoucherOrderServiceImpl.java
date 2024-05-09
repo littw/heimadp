@@ -52,11 +52,13 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
     @Resource
     private RedissonClient redissonClient;
 
+//    阻塞队列的定义：会消耗内存
 //    private BlockingQueue<VoucherOrder> orderTasks=new ArrayBlockingQueue<>(1024*1024);
 
     //一步下单，开启独立线程
     private static final ExecutorService SECKILL_ORDER_EXECUTOR= Executors.newSingleThreadExecutor();
 
+    //在类初始化之后执行，因为当这个类初始化好了之后，随时都是有可能要执行的
     @PostConstruct
     private void init(){
         SECKILL_ORDER_EXECUTOR.submit(new VoucherOrderHandler());
@@ -69,6 +71,7 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
             while (true){
                 try {
                     //1.获取消息队列中的秒杀订单  XREADGROUP group g1 c1 COUNT 1 BLOCK 2000 STREAMS s1 >
+                    //>是指从最新一条消息进行读取
                     List<MapRecord<String, Object, Object>> records = stringRedisTemplate.opsForStream().read(
                             Consumer.from("g1", "c1"),
                             StreamReadOptions.empty().count(1).block(Duration.ofSeconds(2)),
@@ -101,7 +104,7 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
         public void run() {
             while (true){
                 try {
-                    //1.获取消息队列中的秒杀订单
+                    //1.获取消息队列中的秒杀订单  阻塞队列
                     VoucherOrder voucherOrder = orderTasks.take();
                     //2.创建订单
                     handleVoucherOrder(voucherOrder);
@@ -119,6 +122,7 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
         while (true){
             try {
                 //1.获取消息队列中的秒杀订单  XREADGROUP group g1 c1 COUNT 1 BLOCK 2000 STREAMS s1 0
+                //0是指从pending-list中读取数据
                 List<MapRecord<String, Object, Object>> records = stringRedisTemplate.opsForStream().read(
                         Consumer.from("g1", "c1"),
                         StreamReadOptions.empty().count(1),
@@ -156,7 +160,7 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
     private void handleVoucherOrder(VoucherOrder voucherOrder) {
         //获取用户
         Long userId = voucherOrder.getUserId();
-        //创建锁对象
+        //创建锁对象  这里是防止一人多单问题，乐观锁是防止超卖问题
         RLock lock = redissonClient.getLock("order:" + userId);
         //获取锁
         boolean isLock = lock.tryLock(); //
@@ -167,6 +171,7 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
         }
         //成功，执行事务
         try {
+            //注意：由于是spring的事务是放在threadLocal中，此时的是多线程，事务会失效
             proxy.creatVoucherOrder(voucherOrder);
         } finally {
             //释放锁
@@ -174,7 +179,6 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
             lock.unlock();
         }
     }
-
     private static final DefaultRedisScript<Long> SECKILL_SCRIPT;
     static {
         SECKILL_SCRIPT=new DefaultRedisScript<>();
@@ -341,7 +345,7 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
         boolean success = seckillVoucherService.update().setSql("stock=stock-1")
                 .eq("voucher_id", voucherId)
                 .gt("stock", 0)  //优化改进乐观锁
-//                .eq("stock",stock)
+//                .eq("stock",voucher.getStock()) //乐观锁
                 .update();
         //扣减库存
         if (!success) {
@@ -350,8 +354,4 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
         //保存秒杀订单
         save(voucherOrder);
     }
-
-
-
-
 }

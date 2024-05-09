@@ -16,7 +16,6 @@ import java.util.UUID;
 @RestController
 @RequestMapping("upload")
 public class UploadController {
-
     @PostMapping("blog")
     public Result uploadImage(@RequestParam("file") MultipartFile image) {
         try {
@@ -26,7 +25,7 @@ public class UploadController {
             String fileName = createNewFileName(originalFilename);
             // 保存文件
             image.transferTo(new File(SystemConstants.IMAGE_UPLOAD_DIR, fileName));
-            // 返回结果
+            // 返回文件名
             log.debug("文件上传成功，{}", fileName);
             return Result.ok(fileName);
         } catch (IOException e) {
@@ -49,9 +48,9 @@ public class UploadController {
         String suffix = StrUtil.subAfter(originalFilename, ".", true);
         // 生成目录
         String name = UUID.randomUUID().toString();
-        int hash = name.hashCode();
-        int d1 = hash & 0xF;
-        int d2 = (hash >> 4) & 0xF;
+        int hash = name.hashCode();  //获取uuid的哈希码，32位
+        int d1 = hash & 0xF;  //通过位运算将哈希码分解为两个4位的整数，用作目录的名称，0xF 二进制是1111 获取uuid的前四位
+        int d2 = (hash >> 4) & 0xF;  //获取uuid的中间四位
         // 判断目录是否存在
         File dir = new File(SystemConstants.IMAGE_UPLOAD_DIR, StrUtil.format("/blogs/{}/{}", d1, d2));
         if (!dir.exists()) {

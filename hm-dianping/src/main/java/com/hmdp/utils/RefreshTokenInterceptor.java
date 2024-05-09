@@ -12,6 +12,7 @@ import javax.servlet.http.HttpServletResponse;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
+//拦截所有请求页面
 public class RefreshTokenInterceptor implements HandlerInterceptor {
 
     private StringRedisTemplate stringRedisTemplate;
@@ -23,6 +24,7 @@ public class RefreshTokenInterceptor implements HandlerInterceptor {
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
         //获取用户的token
         String token = request.getHeader("authorization");
+        //token不存在，说明先前没有缓存登录信息，放行
         if (StrUtil.isBlank(token)){
             return true; //放行
         }

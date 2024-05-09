@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 
 import javax.annotation.Resource;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 /**
  * <p>
@@ -31,18 +32,18 @@ public class ShopTypeServiceImpl extends ServiceImpl<ShopTypeMapper, ShopType> i
         String key = RedisConstants.CACHE_SHOP_TYPE_KEY;
         //先查询redis中是否有缓存有店铺种类的列表
         String shopType = stringRedisTemplate.opsForValue().get(key);
+        List<ShopType> list = JSONUtil.toList(shopType,ShopType.class);
         //缓存中存在，直接返回
-        if (StrUtil.isNotBlank(shopType)){
-            List<ShopType> shopTypeList = JSONUtil.toList(shopType, ShopType.class);
-            return Result.ok(shopTypeList);
+        if (!list.isEmpty()){
+            return Result.ok(list);
         }
         //不存在，从数据库中进行查询
-        List<ShopType> shopTypeList = query().orderByAsc("sort").list();
-        if (shopTypeList.isEmpty()){
+        list = query().orderByAsc("sort").list();
+        if (list.isEmpty()){
             return Result.fail("店铺信息不存在");
         }
         //存在，将数据缓存到redis中
-        stringRedisTemplate.opsForValue().set(key,JSONUtil.toJsonStr(shopTypeList));
-        return Result.ok(shopTypeList);
+        stringRedisTemplate.opsForValue().set(key,JSONUtil.toJsonStr(list));
+        return Result.ok(list);
     }
 }

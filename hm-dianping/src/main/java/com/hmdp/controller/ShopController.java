@@ -34,6 +34,7 @@ public class ShopController {
     @GetMapping("/{id}")
     public Result queryShopById(@PathVariable("id") Long id) {
         Shop shop = shopService.queryByIdWithLogicExpire(id);
+//        Shop shop = shopService.queryByIdWithMutex(id);
         if (shop==null){
             return Result.fail("店铺不存在");
         }
