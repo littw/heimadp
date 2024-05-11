@@ -22,5 +22,6 @@ public class RedisConstants {
     public static final String USER_SIGN_KEY = "sign:";
 
     public static final String BLOG_LIKE_KEY = "blog:like:";
+    public static final String FOLLOW_KEY = "follow:";
 
 }
