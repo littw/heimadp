@@ -46,4 +46,5 @@ public class ShopTypeServiceImpl extends ServiceImpl<ShopTypeMapper, ShopType> i
         stringRedisTemplate.opsForValue().set(key,JSONUtil.toJsonStr(list));
         return Result.ok(list);
     }
+
 }

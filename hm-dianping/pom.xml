@@ -21,6 +21,26 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-redis</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>lettuce-core</groupId>
+                    <artifactId>io.lettuce</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>spring-data-redis</groupId>
+                    <artifactId>org.springframework.data</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.data</groupId>
+            <artifactId>spring-data-redis</artifactId>
+            <version>3.2.4</version>
+        </dependency>
+        <dependency>
+            <groupId>io.lettuce</groupId>
+            <artifactId>lettuce-core</artifactId>
+            <version>6.3.2.RELEASE</version>
         </dependency>
         <dependency>
             <groupId>org.apache.commons</groupId>
@@ -75,7 +95,6 @@
             <artifactId>redisson</artifactId>
             <version>3.17.1</version>
         </dependency>
-
     </dependencies>
 
     <build>
